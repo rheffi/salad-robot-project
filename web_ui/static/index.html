@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#071116" />
+    <title>Salad Robot Control</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <p class="eyebrow">E0509 · REALSENSE · MOCK CONTROL</p>
+            <h1>Salad Robot <span>Operator</span></h1>
+          </div>
+        </div>
+        <div class="top-status">
+          <div class="mode-lock"><i></i> DRY RUN ONLY</div>
+          <div id="systemState" class="state-badge offline"><span></span>OFFLINE</div>
+        </div>
+      </header>
+
+      <main>
+        <section class="connection-strip" aria-label="서비스 연결 상태">
+          <div class="connection-item">
+            <span class="connection-dot" id="robotDot"></span>
+            <div><small>ROBOT</small><strong id="robotStatus">연결 안 됨</strong></div>
+          </div>
+          <div class="connection-item">
+            <span class="connection-dot" id="cameraDot"></span>
+            <div><small>REALSENSE</small><strong id="cameraStatus">연결 안 됨</strong></div>
+          </div>
+          <div class="connection-item">
+            <span class="connection-dot" id="modelDot"></span>
+            <div><small>YOLO MODEL</small><strong id="modelStatus">로드 안 됨</strong></div>
+          </div>
+          <div class="connection-item tcp-item">
+            <div><small>ACTIVE TCP</small><strong>MockGripper_v1</strong></div>
+          </div>
+          <div class="clock" id="clock">--:--:--</div>
+        </section>
+
+        <section class="workspace-grid">
+          <article class="panel camera-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="section-number">01 / VISION</p>
+                <h2>작업대 카메라</h2>
+              </div>
+              <div class="camera-meta"><span>1280 × 720</span><span class="live-tag">MOCK FEED</span></div>
+            </div>
+            <div class="camera-stage" id="cameraStage">
+              <canvas id="cameraCanvas" aria-label="가상 카메라 검출 화면"></canvas>
+              <div class="scan-line" aria-hidden="true"></div>
+              <div class="camera-corner top-left"></div>
+              <div class="camera-corner top-right"></div>
+              <div class="camera-corner bottom-left"></div>
+              <div class="camera-corner bottom-right"></div>
+              <div class="camera-empty" id="cameraEmpty">
+                <div class="lens-icon"><span></span></div>
+                <strong>VISION STANDBY</strong>
+                <p>시스템을 초기화한 뒤 장면 인식을 실행하세요.</p>
+              </div>
+              <div class="frame-footer">
+                <span>CAM_01 · OVERHEAD</span>
+                <span id="frameTime">NO SIGNAL</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel ingredients-panel">
+            <div class="panel-heading">
+              <div>
+                <p class="section-number">02 / DETECTION</p>
+                <h2>감지된 재료</h2>
+              </div>
+              <span class="count-badge" id="detectionCount">0 OBJECTS</span>
+            </div>
+            <div class="ingredients-list" id="ingredientsList">
+              <div class="empty-list"><span>＋</span><p>감지 결과가 없습니다.</p></div>
+            </div>
+            <div class="coordinate-readout">
+              <div><small>선택 좌표 X</small><strong id="coordX">—</strong></div>
+              <div><small>Y</small><strong id="coordY">—</strong></div>
+              <div><small>Z</small><strong id="coordZ">—</strong></div>
+              <div><small>ANGLE</small><strong id="coordAngle">—</strong></div>
+            </div>
+          </article>
+        </section>
+
+        <section class="operation-grid">
+          <article class="panel controls-panel">
+            <div class="panel-heading compact">
+              <div><p class="section-number">03 / COMMAND</p><h2>작업 제어</h2></div>
+              <span class="soft-stop-note">정지 = 소프트웨어 요청</span>
+            </div>
+            <div class="button-grid">
+              <button class="control-button primary" id="initializeBtn"><span>01</span>시스템 초기화</button>
+              <button class="control-button" id="detectBtn"><span>02</span>장면 인식</button>
+              <button class="control-button accent" id="runBtn"><span>03</span>DRY RUN 시작</button>
+              <button class="control-button danger" id="stopBtn"><span>■</span>작업 정지 요청</button>
+              <button class="control-button" id="homeBtn"><span>⌂</span>준비자세 복귀</button>
+              <button class="control-button disabled-live" disabled title="Mock MVP에서는 사용할 수 없습니다."><span>×</span>실로봇 실행 잠김</button>
+            </div>
+          </article>
+
+          <article class="panel progress-panel">
+            <div class="panel-heading compact">
+              <div><p class="section-number">04 / PROGRESS</p><h2>현재 작업</h2></div>
+              <strong class="progress-value" id="progressValue">0%</strong>
+            </div>
+            <div class="current-step">
+              <span class="pulse-ring"></span>
+              <div><small>CURRENT STEP</small><strong id="currentStep">대기 중</strong></div>
+            </div>
+            <div class="progress-track"><div id="progressBar"></div></div>
+            <div class="stage-row" aria-label="작업 단계">
+              <span data-stage="OBSERVING">인식</span><span data-stage="APPROACHING">접근</span>
+              <span data-stage="GRASPING">집기</span><span data-stage="TRANSFERRING">이송</span>
+              <span data-stage="POURING">소스</span><span data-stage="FINISHED">완료</span>
+            </div>
+          </article>
+
+          <article class="panel log-panel">
+            <div class="panel-heading compact">
+              <div><p class="section-number">05 / EVENT STREAM</p><h2>실행 로그</h2></div>
+              <button class="text-button" id="clearLogBtn">CLEAR</button>
+            </div>
+            <div class="log-stream" id="logStream" aria-live="polite">
+              <div class="log-placeholder">WebSocket 연결을 기다리는 중...</div>
+            </div>
+          </article>
+        </section>
+      </main>
+
+      <footer>
+        <span>LOCAL CONTROL · 127.0.0.1</span>
+        <span class="footer-warning">실제 비상 상황에서는 물리 E-STOP을 사용하십시오.</span>
+        <span id="socketStatus">WS CONNECTING</span>
+      </footer>
+    </div>
+    <div id="toast" class="toast" role="status"></div>
+  </body>
+</html>

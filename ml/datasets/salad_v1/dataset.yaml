@@ -1,0 +1,15 @@
+path: /home/choi-chun-hwan/dev_ws/salad_robot_project/ml/datasets/salad_v1
+train: images/train
+val: images/val
+test:
+
+names:
+  0: lettuce
+  1: onion
+  2: cheese
+  3: berry
+  4: tomato
+  5: bowl
+  6: brocoli
+  7: carrot
+  8: bacon

@@ -1,0 +1,100 @@
+{
+  "source": "/home/choi-chun-hwan/dev_ws/salad_robot_project/ml/datasets/print_phone_source",
+  "output": "/home/choi-chun-hwan/dev_ws/salad_robot_project/ml/datasets/salad_v1",
+  "val_ratio_requested": 0.2,
+  "source_names": {
+    "0": "tomato",
+    "1": "cheese",
+    "2": "onion",
+    "3": "lettuce",
+    "4": "berry",
+    "5": "carrot",
+    "6": "brocoli",
+    "7": "bowl",
+    "8": "bacon"
+  },
+  "target_names": {
+    "0": "lettuce",
+    "1": "onion",
+    "2": "cheese",
+    "3": "berry",
+    "4": "tomato",
+    "5": "bowl",
+    "6": "brocoli",
+    "7": "carrot",
+    "8": "bacon"
+  },
+  "source_to_target": {
+    "0": 4,
+    "1": 2,
+    "2": 1,
+    "3": 0,
+    "4": 3,
+    "5": 7,
+    "6": 6,
+    "7": 5,
+    "8": 8
+  },
+  "image_counts": {
+    "val": 17,
+    "train": 60
+  },
+  "box_counts": {
+    "train": {
+      "0": 47,
+      "1": 55,
+      "2": 69,
+      "3": 66,
+      "4": 49,
+      "5": 17,
+      "6": 27,
+      "7": 27,
+      "8": 36
+    },
+    "val": {
+      "0": 10,
+      "1": 12,
+      "2": 17,
+      "3": 17,
+      "4": 11,
+      "5": 4,
+      "6": 6,
+      "7": 6,
+      "8": 8
+    }
+  },
+  "validation_groups": [
+    "augmented:IMG_2935",
+    "augmented:IMG_2939",
+    "augmented:IMG_6606",
+    "single:IMG_7087_aa45e7e2",
+    "single:IMG_7088_1c8d320f"
+  ],
+  "all_groups": [
+    "augmented:IMG_2935",
+    "augmented:IMG_2936",
+    "augmented:IMG_2937",
+    "augmented:IMG_2938",
+    "augmented:IMG_2939",
+    "augmented:IMG_2940",
+    "augmented:IMG_2941",
+    "augmented:IMG_2942",
+    "augmented:IMG_6606",
+    "augmented:IMG_6607",
+    "augmented:IMG_6608",
+    "augmented:IMG_6609",
+    "augmented:IMG_6610",
+    "single:IMG_7087(1)_733bc075",
+    "single:IMG_7087_aa45e7e2",
+    "single:IMG_7088_1c8d320f",
+    "single:IMG_7089_65f96504",
+    "single:IMG_7090_6020ff2a",
+    "single:IMG_7091_9e68d8fc",
+    "single:IMG_7092_b32a8f84",
+    "single:IMG_7093_a317889a",
+    "single:IMG_7094_1d025a99",
+    "single:IMG_7096_450d1405",
+    "single:IMG_7098_aa657b77",
+    "single:IMG_7099_64f361fa"
+  ]
+}
