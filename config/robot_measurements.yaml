@@ -1,0 +1,94 @@
+poses:
+  home:
+    recorded_at: '2026-09-22T15:30:54+09:00'
+    posj_deg:
+    - 87.288773
+    - 1.058698
+    - 90.742432
+    - 2.524327
+    - 92.610611
+    - 6.8e-05
+    posx_mm_deg:
+    - 9.752561
+    - 366.392273
+    - 393.891083
+    - 57.510967
+    - -174.917496
+    - -29.795599
+    solution_space: 2
+    robot_mode: 0
+    tcp: ''
+    note: ''
+  safe_wait:
+    recorded_at: '2026-09-22T15:41:51+09:00'
+    posj_deg:
+    - 3.737377
+    - 8.272313
+    - 61.846104
+    - -5.153081
+    - 108.06086
+    - 5.1e-05
+    posx_mm_deg:
+    - 409.778931
+    - 12.006135
+    - 528.678345
+    - 113.372414
+    - -174.798218
+    - 111.311554
+    solution_space: 2
+    robot_mode: 0
+    tcp: ''
+    note: ''
+  pick_reference:
+    recorded_at: '2026-09-22T15:46:55+09:00'
+    posj_deg:
+    - -3.029398
+    - 62.144581
+    - 21.594007
+    - -5.15437
+    - 92.974365
+    - 0.000119
+    posx_mm_deg:
+    - 708.559448
+    - -52.996681
+    - 247.938782
+    - 119.352791
+    - -173.901428
+    - 122.797752
+    solution_space: 2
+    robot_mode: 0
+    tcp: ''
+    note: ''
+  place_reference:
+    recorded_at: '2026-09-22T15:47:37+09:00'
+    posj_deg:
+    - 3.512335
+    - 13.358809
+    - 93.401726
+    - -5.15303
+    - 73.307869
+    - 0.00022
+    posx_mm_deg:
+    - 443.39856
+    - 12.346978
+    - 287.984039
+    - 93.460648
+    - -175.064651
+    - 88.464554
+    solution_space: 2
+    robot_mode: 0
+    tcp: ''
+    note: ''
+project:
+  robot_id: dsr01
+  robot_model: e0509
+  ros_domain_id: 15
+  pick_classes:
+  - tomato
+  - cheese
+  - berry
+  box_size_mm: 70
+  coordinate_units: mm_degree
+tcp:
+  active_name: ''
+  offset_mm_deg: null

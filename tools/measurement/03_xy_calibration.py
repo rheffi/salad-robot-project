@@ -111,7 +111,8 @@ def capture_detection(args: argparse.Namespace) -> tuple[float, float, float, in
     if not model_path.is_file():
         raise FileNotFoundError(f"모델이 없습니다: {model_path}")
     model = YOLO(str(model_path))
-    available = set(str(name) for name in model.names.values())
+    raw_names = model.names.values() if isinstance(model.names, dict) else model.names
+    available = set(str(name) for name in raw_names)
     if args.class_name not in available:
         raise ValueError(f"모델에 {args.class_name!r} 클래스가 없습니다.")
 
@@ -316,6 +317,7 @@ def fit(args: argparse.Namespace) -> int:
         "box_size_mm": BOX_SIZE_MM,
         "sample_count": len(rows),
         "matrix_3x3": homography.tolist(),
+        "manual_offset_mm": {"x": 0.0, "y": 0.0},
         "pixel_convex_hull": hull.tolist(),
         "robot_xy_bounds_mm": {
             "x_min": float(robot_xy[:, 0].min()),

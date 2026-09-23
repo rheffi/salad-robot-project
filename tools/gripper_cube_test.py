@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
             "원위치/놓기를 한 번씩 시험합니다."
         )
     )
-    parser.add_argument("--size-mm", type=int, choices=(40, 50, 60), required=True)
+    parser.add_argument("--size-mm", type=int, choices=(40, 50, 60, 70), required=True)
     parser.add_argument("--height-mm", type=int, default=30)
     parser.add_argument("--open-position", type=int, default=750)
     parser.add_argument("--lift-mm", type=float, default=80.0)

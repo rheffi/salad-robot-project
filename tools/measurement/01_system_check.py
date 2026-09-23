@@ -83,7 +83,8 @@ def main() -> int:
     if model_path.is_file():
         try:
             model = YOLO(str(model_path))
-            names = set(str(name) for name in model.names.values())
+            raw_names = model.names.values() if isinstance(model.names, dict) else model.names
+            names = set(str(name) for name in raw_names)
             missing = sorted(REQUIRED_CLASSES - names)
             report(
                 "YOLO model",
