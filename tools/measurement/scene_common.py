@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
@@ -12,6 +13,7 @@ from typing import Any
 import cv2
 import numpy as np
 from ultralytics import YOLO
+from box_orientation import estimate_box, stable_orientation
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -111,6 +113,8 @@ def capture_scene(
     camera_arg: str,
     confidence: float,
     stable_frames: int,
+    *, angles: bool = False, display: bool = True, should_stop=None,
+    timeout_s: float = 45.0, loaded_model=None,
 ) -> tuple[dict[str, Any], np.ndarray]:
     validate_correction(correction)
     if not 0.0 < confidence <= 1.0 or stable_frames < 3:
@@ -118,7 +122,7 @@ def capture_scene(
     model_file = model_path.expanduser().resolve()
     if not model_file.is_file():
         raise FileNotFoundError(f"YOLO 모델이 없습니다: {model_file}")
-    model = YOLO(str(model_file))
+    model = loaded_model if loaded_model is not None else YOLO(str(model_file))
     raw_names = model.names.values() if isinstance(model.names, dict) else model.names
     names = set(str(name) for name in raw_names)
     missing = sorted(set(SCENE_CLASSES) - names)
@@ -136,23 +140,38 @@ def capture_scene(
     cap.set(cv2.CAP_PROP_FPS, 30)
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
     recent = {name: deque(maxlen=stable_frames) for name in SCENE_CLASSES}
+    angle_required = min(stable_frames, 5)
+    angle_recent = {name: deque(maxlen=angle_required) for name in PICK_CLASSES}
+    angle_misses = {name: 0 for name in PICK_CLASSES}
+    saved_angles = {}
     captured: np.ndarray | None = None
     window = "Scene capture - C save / Q quit"
-    cv2.namedWindow(window, cv2.WINDOW_NORMAL)
+    if display:
+        cv2.namedWindow(window, cv2.WINDOW_NORMAL)
+    deadline = time.monotonic() + timeout_s
     print("tomato, cheese, berry, bowl을 모두 검출합니다. C: 저장 / Q·Esc: 취소")
+    if angles:
+        print("ANGLE 모드: 청록 사각형이 사진 무늬가 아닌 실제 박스 외곽인지 확인 후 C를 누르세요.")
     try:
         for _ in range(15):
+            if should_stop and should_stop():
+                raise RuntimeError("장면 촬영 중단 요청")
             cap.read()
         actual = (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         if actual != (width, height):
             raise RuntimeError(f"카메라 해상도 불일치: 보정={width}x{height}, 현재={actual[0]}x{actual[1]}")
         while True:
+            if should_stop and should_stop():
+                raise RuntimeError("장면 촬영 중단 요청")
+            if not display and time.monotonic() > deadline:
+                raise RuntimeError("장면 인식 시간 초과: 네 대상/외곽선/배치를 확인하세요.")
             ok, frame = cap.read()
             if not ok:
                 raise RuntimeError("카메라 프레임을 읽지 못했습니다.")
             result = model.predict(frame, conf=confidence, imgsz=640, device="cpu", verbose=False)[0]
             annotated = result.plot(labels=True, conf=True, boxes=True)
             found = {name: [] for name in SCENE_CLASSES}
+            boxes = {name: [] for name in SCENE_CLASSES}
             if result.boxes is not None and len(result.boxes):
                 for coords, class_id, score in zip(
                     result.boxes.xyxy.detach().cpu().numpy(),
@@ -163,28 +182,96 @@ def capture_scene(
                     if name in found:
                         x1, y1, x2, y2 = [float(value) for value in coords]
                         found[name].append(((x1 + x2) / 2, (y1 + y2) / 2, float(score)))
+                        boxes[name].append((x1, y1, x2, y2))
             for name in SCENE_CLASSES:
-                if found[name]:
+                if found[name] and (display or len(found[name]) == 1):
                     best = max(found[name], key=lambda item: item[2])
                     recent[name].append(best)
                     cv2.drawMarker(annotated, (round(best[0]), round(best[1])), (0, 0, 255), cv2.MARKER_CROSS, 24, 2)
                 else:
                     recent[name].clear()
+            current_angles = {}
+            angle_status = {}
+            if angles:
+                for name in PICK_CLASSES:
+                    if len(boxes[name]) != 1:
+                        angle_misses[name] += 1
+                        reason = f"YOLO boxes={len(boxes[name])}"
+                        candidate = None
+                    else:
+                        candidate, reason = estimate_box(frame, boxes[name][0], correction)
+                        if candidate is None:
+                            angle_misses[name] += 1
+                        else:
+                            angle_misses[name] = 0
+                            angle_recent[name].append(candidate)
+                            polygon = np.rint(candidate["corners_px"]).astype(np.int32)
+                            cv2.polylines(annotated, [polygon], True, (255, 255, 0), 2)
+                            cx, cy = polygon.mean(axis=0)
+                            rw, rh = candidate["size_mm"]
+                            cv2.putText(
+                                annotated,
+                                f"{candidate['yaw_base_deg']:+.1f}deg {rw:.0f}x{rh:.0f} q={candidate['quality']:.2f}",
+                                (round(cx), round(cy)), cv2.FONT_HERSHEY_SIMPLEX,
+                                .4, (255, 255, 0), 1,
+                            )
+                    if angle_misses[name] > 2:
+                        angle_recent[name].clear()
+                    angle_status[name] = (
+                        f"angle {len(angle_recent[name])}/{angle_required}: {reason}"
+                    )
+                    if len(angle_recent[name]) == angle_required and angle_misses[name] <= 2:
+                        try:
+                            current_angles[name] = stable_orientation(list(angle_recent[name]))
+                            angle_status[name] = (
+                                f"angle OK {current_angles[name]['yaw_base_deg']:+.1f}deg"
+                            )
+                        except ValueError as exc:
+                            angle_status[name] = f"angle unstable: {exc}"
             stable = [name for name in SCENE_CLASSES if len(recent[name]) == stable_frames]
+            if not display:
+                # Web has no C-key review while capturing: reject duplicate targets
+                # and require stationary centers, even in fixed-orientation mode.
+                stable = [name for name in stable if len(found[name]) == 1 and
+                          np.max(np.ptp(np.asarray(recent[name])[:, :2], axis=0)) <= 4]
+            if angles:
+                stable = [name for name in stable if name == "bowl" or name in current_angles]
             cv2.putText(annotated, f"stable {len(stable)}/4: {', '.join(stable)}", (10, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0) if len(stable) == 4 else (0, 200, 255), 2, cv2.LINE_AA)
-            cv2.imshow(window, annotated)
-            key = cv2.waitKey(1) & 0xFF
+            if angles:
+                for index, name in enumerate(PICK_CLASSES):
+                    text = f"{name}: yolo {len(recent[name])}/{stable_frames}, {angle_status[name]}"
+                    cv2.putText(annotated, text, (10, 48 + 19*index),
+                                cv2.FONT_HERSHEY_SIMPLEX, .43,
+                                (0, 255, 0) if name in current_angles else (0, 200, 255),
+                                1, cv2.LINE_AA)
+                cv2.putText(annotated, f"bowl: yolo {len(recent['bowl'])}/{stable_frames}",
+                            (10, 105), cv2.FONT_HERSHEY_SIMPLEX, .43,
+                            (0, 255, 0) if len(recent['bowl']) == stable_frames else (0, 200, 255),
+                            1, cv2.LINE_AA)
+            if display:
+                cv2.imshow(window, annotated)
+                key = cv2.waitKey(1) & 0xFF
+            else:
+                key = ord('c') if len(stable) == 4 else -1
             if key in (ord("q"), ord("Q"), 27):
                 raise KeyboardInterrupt
             if key in (ord("c"), ord("C")):
                 if len(stable) != 4:
-                    print("네 대상의 검출이 아직 모두 안정되지 않았습니다.")
+                    details = []
+                    for name in PICK_CLASSES:
+                        if name not in stable:
+                            details.append(f"{name}({angle_status.get(name, 'YOLO 미검출')})")
+                    if "bowl" not in stable:
+                        details.append(f"bowl(yolo {len(recent['bowl'])}/{stable_frames})")
+                    print("아직 저장 불가:", ", ".join(details))
                     continue
                 captured = annotated.copy()
+                saved_angles = current_angles
                 break
     finally:
         cap.release()
-        cv2.destroyAllWindows()
+        if display:
+            cv2.destroyAllWindows()
 
     detections = {}
     for name in SCENE_CLASSES:
@@ -192,6 +279,8 @@ def capture_scene(
         x, y = pixel_to_robot_xy(float(u), float(v), correction)
         validate_target(float(u), float(v), x, y, correction)
         detections[name] = {"pixel_u": float(u), "pixel_v": float(v), "confidence": float(score), "robot_x_mm": x, "robot_y_mm": y}
+        if name in saved_angles:
+            detections[name]["orientation"] = saved_angles[name]
     offset_x, offset_y = manual_offset(correction)
     document = {
         "created_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -200,6 +289,7 @@ def capture_scene(
         "manual_offset_mm": {"x": offset_x, "y": offset_y},
         "classes": list(SCENE_CLASSES),
         "box_size_mm": BOX_SIZE_MM,
+        "orientation_mode": "detected" if angles else "fixed",
         "detections": detections,
     }
     if captured is None:
@@ -242,3 +332,6 @@ def print_snapshot(snapshot: dict[str, Any]) -> None:
     for name in SCENE_CLASSES:
         item = snapshot["detections"][name]
         print(f"{name:<7} pixel=({float(item['pixel_u']):.1f},{float(item['pixel_v']):.1f}) robot=({float(item['robot_x_mm']):.1f},{float(item['robot_y_mm']):.1f})mm conf={float(item['confidence']):.3f}")
+        if "orientation" in item:
+            o = item["orientation"]
+            print(f"        base yaw={o['yaw_base_deg']:+.2f}deg, spread={o['spread_deg']:.2f}deg, geometry score={o['quality']:.2f}")

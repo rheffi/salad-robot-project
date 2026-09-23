@@ -1,5 +1,9 @@
 # 08 단일 재료 집기·보울 놓기
 
+07 회전 Hover/집기 검증 후 `--rotate --reference-yaw-deg 실측값`으로 회전 집기를
+사용한다. 05 `--angles`로 촬영한 장면이 필요하다. 보울 놓기 방향은 기존 값을 쓴다.
+자세한 순서는 [박스 회전 시험 안내](box_orientation.md)를 참고한다.
+
 대상 파일: [`08_single_pick_place.py`](08_single_pick_place.py)
 
 저장된 재료 하나를 집어 저장된 보울 X/Y에 놓고 HOME으로 복귀하는 첫 완전 동작이다.

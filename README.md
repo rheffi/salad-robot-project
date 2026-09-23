@@ -1,6 +1,6 @@
 # Salad Robot Project
 
-E0509 샐러드 제조 로봇 프로젝트입니다. Web UI는 실제 로봇·카메라·YOLO 없이 전체 작업 흐름을 확인하는 **Mock MVP**이며, 별도로 실로봇 그리퍼 시험 도구를 제공합니다.
+E0509 샐러드 제조 로봇 프로젝트입니다. Web UI는 기본 **Mock** 모드와, 별도로 활성화하는 **실장비 05~09 연동**을 제공합니다. 실장비 웹 실행·설치·시험 순서는 [웹 실장비 사용법](web_ui/REAL_MODE.md)을 먼저 확인하세요. 실제 장비 통합 시험은 별도로 필요합니다.
 
 ## 현재 제공 기능
 
@@ -9,7 +9,8 @@ E0509 샐러드 제조 로봇 프로젝트입니다. Web UI는 실제 로봇·�
 - 초기화, 장면 인식, DRY RUN, 정지 요청, 준비자세 복귀
 - 단일 작업 큐를 통한 중복 실행 차단
 - Mock 재료 검출과 샐러드 작업 상태 전이
-- 실제 로봇 동작이 없는 안전한 `DRY_RUN` 전용 모드
+- 기본 Mock / REAL에서도 기본 DRY RUN, 실제 이동은 작업별 확인 후 실행
+- REAL 장면 촬영, 보울/재료 Hover, 단일 집기·반환, 단일/세 재료 투입
 
 ## 실행
 
@@ -25,8 +26,10 @@ uvicorn web_ui.app:app --host 127.0.0.1 --port 8000
 ## 테스트
 
 ```bash
-source .venv/bin/activate
-pytest
+.venv/bin/python -m pytest tests/test_api.py tests/test_real_core.py
+# 비전/동작 순서 테스트는 OpenCV/YOLO가 있는 환경에서 실행 (장비 호출 없음)
+/home/choi-chun-hwan/venv/yolo-venv/bin/python tests/test_box_orientation.py
+/home/choi-chun-hwan/venv/yolo-venv/bin/python tests/test_hardware_workflow.py
 ```
 
 ## 폼 박스 그리퍼 시험
@@ -72,5 +75,5 @@ python3 tools/gripper_cube_test.py --size-mm 40 --live
 
 ## 안전 범위
 
-Web UI는 여전히 실제 로봇 제어를 하지 않습니다. 화면의 정지 버튼은 물리 비상정지가 아니라 소프트웨어 작업 중지 요청입니다. 그리퍼 시험 도구만 명시적인 `--live`와 두 번의 `RUN` 확인 후 실로봇을 움직입니다.
+Mock은 실제 로봇을 제어하지 않습니다. REAL 모드는 실제 이동 체크와 확인 문구 입력 후 로봇을 움직입니다. 화면의 정지는 현재 호출 종료 후 후속 명령을 막는 요청이며 물리 비상정지가 아닙니다. 경로 충돌 회피와 파지 성공 자동 판정은 제공하지 않습니다. 자세한 제한은 [실장비 사용법](web_ui/REAL_MODE.md)을 확인하세요.
 # salad-robot-project

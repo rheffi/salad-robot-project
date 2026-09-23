@@ -51,7 +51,7 @@ h2 { margin-bottom: 0; font-size: 17px; letter-spacing: -.02em; }
 .state-badge.running span { background: var(--cyan); box-shadow: 0 0 9px var(--cyan); }
 .state-badge.error, .state-badge.stopping { color: var(--red); border-color: rgba(255,95,105,.45); }
 .state-badge.error span, .state-badge.stopping span { background: var(--red); box-shadow: 0 0 9px var(--red); }
-.connection-strip { min-height: 64px; display: grid; grid-template-columns: repeat(3,minmax(150px,190px)) 1fr auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+.connection-strip { min-height: 64px; display: grid; grid-template-columns: repeat(5,minmax(0,1fr)) auto; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
 .connection-item { gap: 10px; }
 .connection-item small, .coordinate-readout small, .current-step small { color: var(--muted); font: 500 9px/1.3 var(--mono); letter-spacing: .12em; }
 .connection-item strong { display: block; margin-top: 2px; font-size: 12px; font-weight: 600; }
@@ -159,3 +159,13 @@ footer { min-height: 59px; justify-content: space-between; color: #4b6269; font:
   .coordinate-readout div:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   footer { min-height: 95px; padding: 19px 0; align-items: flex-start; flex-direction: column; gap: 12px; }
 }
+/* Real hardware controls retain the existing dashboard layout. */
+.run-settings { display:flex; flex-wrap:wrap; gap:12px; padding:0 20px 12px; }
+.run-settings label { color:#bed0d6; font-size:12px; display:flex; gap:6px; align-items:center; }
+.run-settings input[type=number] { width:92px; }
+.run-settings input, .run-settings select { background:#10242d; color:#edf9fa; border:1px solid #38525c; border-radius:4px; padding:5px; }
+.scene-note { color:#bdcbd0; font-size:12px; line-height:1.6; padding:0 20px; }
+#sceneImage { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; z-index:2; background:#071116; }
+#sceneImage.hidden { display:none; }
+#cameraCanvas.hidden { display:none; }
+.real-camera .scan-line { display:none; }

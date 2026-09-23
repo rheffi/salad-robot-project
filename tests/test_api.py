@@ -45,14 +45,14 @@ def test_full_mock_salad_flow_and_duplicate_lock() -> None:
         assert client.post("/api/detect").status_code == 202
         wait_for_state(client, "READY")
         detections = client.get("/api/detections").json()
-        assert [item["class_name"] for item in detections] == ["tomato", "lettuce", "carrot"]
+        assert [item["class_name"] for item in detections] == ["tomato", "cheese", "berry", "bowl"]
 
-        response = client.post("/api/run", json={"dry_run": True, "recipe": {"tomato": 1, "lettuce": 1, "carrot": 1}})
+        response = client.post("/api/run", json={"dry_run": True, "recipe": {"tomato": 1, "cheese": 1, "berry": 1}})
         assert response.status_code == 202
         assert client.post("/api/home").status_code == 409
         final = wait_for_state(client, "FINISHED")
         assert final["progress"] == 100
-        assert all(item["status"] == "완료" for item in client.get("/api/detections").json())
+        assert all(item["status"] == "완료" for item in client.get("/api/detections").json() if item['class_name'] != 'bowl')
         logs = client.get("/api/logs").json()["items"]
         assert any("Mock 샐러드 작업을 완료" in item["message"] for item in logs)
 

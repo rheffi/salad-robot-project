@@ -14,12 +14,12 @@
         <div class="brand">
           <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
           <div>
-            <p class="eyebrow">E0509 · REALSENSE · MOCK CONTROL</p>
+            <p class="eyebrow">E0509 · REALSENSE · SALAD CONTROL</p>
             <h1>Salad Robot <span>Operator</span></h1>
           </div>
         </div>
         <div class="top-status">
-          <div class="mode-lock"><i></i> DRY RUN ONLY</div>
+          <div class="mode-lock"><i></i><span id="modeLabel">DRY RUN</span></div>
           <div id="systemState" class="state-badge offline"><span></span>OFFLINE</div>
         </div>
       </header>
@@ -39,8 +39,9 @@
             <div><small>YOLO MODEL</small><strong id="modelStatus">로드 안 됨</strong></div>
           </div>
           <div class="connection-item tcp-item">
-            <div><small>ACTIVE TCP</small><strong>MockGripper_v1</strong></div>
+            <div><small>ACTIVE TCP</small><strong id="tcpStatus">—</strong></div>
           </div>
+          <div class="connection-item"><span class="connection-dot" id="gripperDot"></span><div><small>GRIPPER SERVICE</small><strong id="gripperStatus">확인 전</strong></div></div>
           <div class="clock" id="clock">--:--:--</div>
         </section>
 
@@ -51,10 +52,11 @@
                 <p class="section-number">01 / VISION</p>
                 <h2>작업대 카메라</h2>
               </div>
-              <div class="camera-meta"><span>1280 × 720</span><span class="live-tag">MOCK FEED</span></div>
+              <div class="camera-meta"><span id="cameraSize">1280 × 720</span><span class="live-tag" id="feedLabel">MOCK FEED</span></div>
             </div>
             <div class="camera-stage" id="cameraStage">
               <canvas id="cameraCanvas" aria-label="가상 카메라 검출 화면"></canvas>
+              <img id="sceneImage" class="hidden" alt="마지막 촬영 결과 — 실시간 영상이 아닙니다" />
               <div class="scan-line" aria-hidden="true"></div>
               <div class="camera-corner top-left"></div>
               <div class="camera-corner top-right"></div>
@@ -96,16 +98,31 @@
           <article class="panel controls-panel">
             <div class="panel-heading compact">
               <div><p class="section-number">03 / COMMAND</p><h2>작업 제어</h2></div>
-              <span class="soft-stop-note">정지 = 소프트웨어 요청</span>
+              <span class="soft-stop-note">정지 = 현재 호출 종료 후 다음 명령 차단</span>
             </div>
+            <div class="run-settings">
+              <label><input id="liveMode" type="checkbox" /> 실제 이동 허용 (기본 DRY)</label>
+              <label><input id="rotateMode" type="checkbox" /> 박스 회전 사용</label>
+              <label>기준각 ° <input id="referenceYaw" type="number" step="0.1" placeholder="회전 사용 시 필수" /></label>
+              <label>시험 재료 <select id="targetClass"><option value="tomato">토마토</option><option value="cheese">치즈</option><option value="berry">블루베리</option></select></label>
+              <label>Hover mm <input id="hoverHeight" type="number" min="50" max="150" value="100" /></label>
+              <label>속도 <input id="velocity" type="number" min="1" max="20" value="10" /></label>
+              <label>가속도 <input id="acceleration" type="number" min="1" max="20" value="10" /></label>
+            </div>
+            <p class="scene-note" id="sceneNote">서버 연결 대기</p>
             <div class="button-grid">
               <button class="control-button primary" id="initializeBtn"><span>01</span>시스템 초기화</button>
-              <button class="control-button" id="detectBtn"><span>02</span>장면 인식</button>
-              <button class="control-button accent" id="runBtn"><span>03</span>DRY RUN 시작</button>
+              <button class="control-button" id="detectBtn"><span>05</span>장면 인식</button>
+              <button class="control-button accent" id="runBtn"><span>09</span>전체 순서 실행</button>
               <button class="control-button danger" id="stopBtn"><span>■</span>작업 정지 요청</button>
               <button class="control-button" id="homeBtn"><span>⌂</span>준비자세 복귀</button>
-              <button class="control-button disabled-live" disabled title="Mock MVP에서는 사용할 수 없습니다."><span>×</span>실로봇 실행 잠김</button>
+              <button class="control-button" id="bowlHoverBtn" data-test="bowl-hover"><span>06</span>보울 Hover</button>
+              <button class="control-button" id="pickHoverBtn" data-test="pick-hover"><span>07a</span>재료 Hover</button>
+              <button class="control-button" id="pickBtn" data-test="pick"><span>07b</span>집기 · 들고 대기</button>
+              <button class="control-button" id="returnBtn" data-test="return"><span>↩</span>원위치 반환</button>
+              <button class="control-button" id="placeBtn" data-test="pick-place"><span>08</span>한 개 집고 담기</button>
             </div>
+            <p class="scene-note">사진은 마지막 촬영본입니다. 물체를 옮기면 다시 촬영하세요. 경로 충돌 회피 및 파지 성공 자동 판정은 없습니다. 브라우저를 닫아도 로봇은 멈추지 않습니다.</p>
           </article>
 
           <article class="panel progress-panel">
@@ -121,7 +138,7 @@
             <div class="stage-row" aria-label="작업 단계">
               <span data-stage="OBSERVING">인식</span><span data-stage="APPROACHING">접근</span>
               <span data-stage="GRASPING">집기</span><span data-stage="TRANSFERRING">이송</span>
-              <span data-stage="POURING">소스</span><span data-stage="FINISHED">완료</span>
+              <span data-stage="RELEASING">놓기</span><span data-stage="FINISHED">완료</span>
             </div>
           </article>
 

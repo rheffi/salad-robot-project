@@ -18,7 +18,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--correction", type=Path, default=DEFAULT_CORRECTION)
     parser.add_argument("--camera", default="auto")
     parser.add_argument("--conf", type=float, default=0.5)
-    parser.add_argument("--stable-frames", type=int, default=10)
+    parser.add_argument("--stable-frames", type=int, default=5)
+    parser.add_argument("--angles", action="store_true", help="70mm 박스 외곽과 로봇 기준 각도 검출")
     parser.add_argument("--output", type=Path, default=DEFAULT_SNAPSHOT)
     parser.add_argument("--image-output", type=Path, default=DEFAULT_SNAPSHOT_IMAGE)
     return parser.parse_args()
@@ -29,7 +30,8 @@ def main() -> int:
     try:
         correction = load_json(args.correction)
         snapshot, image = capture_scene(
-            args.model, correction, args.camera, args.conf, args.stable_frames
+            args.model, correction, args.camera, args.conf, args.stable_frames,
+            angles=args.angles,
         )
         print_snapshot(snapshot)
         save_snapshot(snapshot, image, args.output, args.image_output)

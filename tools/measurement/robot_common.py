@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import math
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,8 @@ def load_poses(path: Path, names: tuple[str, ...]) -> tuple[dict[str, dict[str, 
         task = [float(value) for value in entry.get("posx_mm_deg", [])]
         if len(joints) != 6 or len(task) != 6:
             raise ValueError(f"{name}의 posj/posx 형식이 잘못됐습니다.")
+        if not all(math.isfinite(value) for value in joints + task):
+            raise ValueError(f"{name}의 posj/posx에 NaN/무한대가 있습니다.")
         tcp = str(entry.get("tcp", ""))
         if expected_tcp is None:
             expected_tcp = tcp
@@ -58,13 +61,14 @@ def validate_settings(poses: dict[str, dict[str, Any]], hover: float, vel: float
 
 
 class Robot:
-    def __init__(self, expected_tcp: str, gripper: bool) -> None:
+    def __init__(self, expected_tcp: str, gripper: bool, *, web_worker: bool = False) -> None:
         self.expected_tcp = expected_tcp
         self.use_gripper = gripper
         self.node = None
         self.rclpy = None
         self.api: dict[str, Any] = {}
         self.gripper_cmd = None
+        self.web_worker = web_worker
 
     def __enter__(self) -> "Robot":
         if os.environ.get("ROS_DOMAIN_ID") != REQUIRED_DOMAIN_ID:
@@ -79,7 +83,12 @@ class Robot:
         setattr(DR_init, "__dsr__id", ROBOT_ID)
         setattr(DR_init, "__dsr__model", ROBOT_MODEL)
         if not rclpy.ok():
-            rclpy.init()
+            if self.web_worker:
+                from rclpy.signals import SignalHandlerOptions
+                # Uvicorn owns SIGINT/SIGTERM; do not replace its handlers.
+                rclpy.init(args=[], signal_handler_options=SignalHandlerOptions.NO)
+            else:
+                rclpy.init()
         self.node = rclpy.create_node("salad_workflow", namespace=ROBOT_ID)
         setattr(DR_init, "__dsr__node", self.node)
         import DSR_ROBOT2 as dsr
@@ -110,7 +119,10 @@ class Robot:
         if self.node is not None:
             self.node.destroy_node()
         if self.rclpy is not None and self.rclpy.ok():
-            self.rclpy.shutdown()
+            if self.web_worker:
+                self.rclpy.shutdown(uninstall_handlers=False)
+            else:
+                self.rclpy.shutdown()
 
     def state(self) -> tuple[list[float], list[float]]:
         joints = [float(value) for value in self.api["get_current_posj"]()]
@@ -166,9 +178,48 @@ def target_poses(
 
 def approach_target(
     robot: Robot, x: float, y: float, reference: list[float], safe_z: float,
-    hover: float, vel: float, acc: float, label: str,
+    hover: float, vel: float, acc: float, label: str, *, separate_rotation: bool = False,
 ) -> tuple[list[float], list[float], list[float]]:
     safe_pose, hover_pose, action_pose = target_poses(x, y, reference, safe_z, hover)
+    if separate_rotation:
+        _, current = robot.state()
+        if not all(math.isfinite(v) for v in current) or abs(current[2] - safe_z) > 5:
+            raise ValueError("회전 전에 로봇이 기록된 safe_wait 높이에 있어야 합니다.")
+        # Base-Z rotation of ZYZ: Rz(delta) Rz(A) Ry(B) Rz(C).
+        # Change orientation in place before translating towards the target.
+        robot.movel([*current[:3], *reference[3:]], vel, acc, f"{label} 안전 높이 제자리 방향 정렬")
     robot.movel(safe_pose, vel, acc, f"{label} 안전 높이")
     robot.movel(hover_pose, vel, acc, f"{label} Hover")
     return safe_pose, hover_pose, action_pose
+
+
+def add_rotation_arguments(parser):
+    parser.add_argument("--rotate", action="store_true", help="검출한 박스 각도를 집기 자세에 적용")
+    parser.add_argument("--reference-yaw-deg", type=float,
+                        help="pick_reference에서 잘 집혔던 정방향 박스의 base yaw (05 --angles로 확인)")
+
+
+def validate_rotation_options(rotate, reference_yaw):
+    if rotate and (reference_yaw is None or not math.isfinite(reference_yaw)):
+        raise ValueError("--rotate에는 실측한 --reference-yaw-deg 값이 필요합니다.")
+
+
+def pick_reference_for_item(reference, item, *, rotate=False, reference_yaw=None):
+    result = [float(v) for v in reference]
+    if not rotate:
+        return result
+    from box_orientation import METHOD, square_delta
+    validate_rotation_options(rotate, reference_yaw)
+    o = item.get("orientation", {})
+    values = [float(o.get(key, float('nan'))) for key in
+              ("yaw_base_deg", "quality", "spread_deg", "stable_frames")]
+    if (o.get("method") != METHOD or not all(math.isfinite(v) for v in values)
+            or not -.001 <= values[2] <= 5 or not .68 <= values[1] <= 1.01
+            or values[3] < 3 or not -45 <= values[0] < 45):
+        raise ValueError("검증된 박스 각도가 없습니다. 05 --angles로 다시 촬영하세요.")
+    if len(result) != 6 or not all(math.isfinite(v) for v in result):
+        raise ValueError("집기 자세가 유효하지 않습니다.")
+    delta = square_delta(values[0], reference_yaw)
+    result[3] = (result[3] + delta + 180) % 360 - 180
+    print(f"박스 yaw={values[0]:+.2f}, 기준={reference_yaw:+.2f}, base-Z 회전={delta:+.2f}deg")
+    return result

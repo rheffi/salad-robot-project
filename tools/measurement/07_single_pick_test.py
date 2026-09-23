@@ -5,10 +5,12 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import salad_workflow as flow
 
 from robot_common import (
     CLOSE_POSITION, DEFAULT_MEASUREMENTS, GRIPPER_CURRENT, OPEN_POSITION,
-    Robot, approach_target, load_poses, move_safe, validate_settings,
+    Robot, load_poses, validate_settings,
+    add_rotation_arguments, pick_reference_for_item,
 )
 from scene_common import (
     DEFAULT_CORRECTION, DEFAULT_SNAPSHOT, PICK_CLASSES, load_json, load_snapshot,
@@ -27,6 +29,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--close-position", type=int, default=CLOSE_POSITION)
     parser.add_argument("--current", type=int, default=GRIPPER_CURRENT)
     parser.add_argument("--live", action="store_true")
+    add_rotation_arguments(parser)
+    parser.add_argument("--hover-only", action="store_true", help="집기 Z 하강과 그리퍼 없이 Hover까지만 시험")
     return parser.parse_args()
 
 
@@ -41,46 +45,39 @@ def main() -> int:
         validate_settings(poses, args.hover_height_mm, args.vel, args.acc)
         item = snapshot["detections"][args.class_name]
         x, y = float(item["robot_x_mm"]), float(item["robot_y_mm"])
-        reference = poses["pick_reference"]["posx"]
-        safe_z = float(poses["safe_wait"]["posx"][2])
+        reference = pick_reference_for_item(
+            poses["pick_reference"]["posx"], item,
+            rotate=args.rotate, reference_yaw=args.reference_yaw_deg,
+        )
         print("\n[단일 집기 계획]")
         print(f"class={args.class_name}, XY=({x:.1f}, {y:.1f})mm, pick Z={reference[2]:.1f}mm")
         print(f"gripper close={args.close_position}, current={args.current}, open={OPEN_POSITION}")
-        print("이동: safe_wait → Hover → 집기 → 상승 → 확인 → 원위치 반환 → safe_wait")
+        print("이동: safe_wait → Hover" if args.hover_only else "이동: safe_wait → Hover → 집기 → 상승 → 확인 → 원위치 반환 → safe_wait")
         if not args.live:
             print("DRY RUN 완료. 로봇과 그리퍼는 움직이지 않았습니다.")
             return 0
 
-        with Robot(tcp, gripper=True) as robot:
+        with Robot(tcp, gripper=not args.hover_only) as robot:
             robot.print_route_start(poses["safe_wait"]["posj"])
-            expected = f"PICK {args.class_name.upper()}"
+            expected = f"{'HOVER' if args.hover_only else 'PICK'} {args.class_name.upper()}"
             if input(f"경로·주변·비상정지를 확인한 뒤 {expected} 입력: ").strip() != expected:
                 print("취소했습니다.")
                 return 0
             robot.autonomous()
-            move_safe(robot, poses, args.vel, args.acc)
-            robot.grip(OPEN_POSITION, GRIPPER_CURRENT, "열기")
-            robot.wait(2)
-            safe_pose, hover_pose, pick_pose = approach_target(
-                robot, x, y, reference, safe_z, args.hover_height_mm,
-                args.vel, args.acc, args.class_name,
+            points = flow.pick(
+                robot, args.class_name, snapshot, poses, args.hover_height_mm,
+                args.vel, args.acc, args.close_position, args.current,
+                rotate=args.rotate, reference_yaw=args.reference_yaw_deg,
+                hover_only=args.hover_only,
             )
-            robot.movel(pick_pose, 5.0, 5.0, "집기 Z 하강")
-            robot.grip(args.close_position, args.current, "닫기")
-            robot.wait(2.0)
-            robot.movel(hover_pose, 5.0, 5.0, "집은 후 상승")
-            robot.movel(safe_pose, args.vel, args.acc, "집은 후 안전 높이")
+            if args.hover_only:
+                print("Hover 완료. 그리퍼는 작동하지 않았습니다. 자동 복귀하지 않습니다.")
+                return 0
             print("집기 완료. 박스의 미끄러짐과 찌그러짐을 확인하세요.")
             if input("원래 위치에 반환하려면 RETURN 입력: ").strip() != "RETURN":
                 print("반환하지 않았습니다. 로봇은 박스를 든 안전 높이에 있습니다.")
                 return 0
-            robot.movel(hover_pose, args.vel, args.acc, "반환 Hover")
-            robot.movel(pick_pose, 5.0, 5.0, "반환 Z 하강")
-            robot.grip(OPEN_POSITION, GRIPPER_CURRENT, "반환 열기")
-            robot.wait(2)
-            robot.movel(hover_pose, 5.0, 5.0, "반환 후 상승")
-            robot.movel(safe_pose, args.vel, args.acc, "반환 후 안전 높이")
-            move_safe(robot, poses, args.vel, args.acc)
+            flow.return_pick(robot, points, poses, args.vel, args.acc)
             print("단일 집기·반환 시험 완료. safe_wait에서 정지했습니다.")
         return 0
     except KeyboardInterrupt:

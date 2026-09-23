@@ -199,9 +199,9 @@ class MockCore:
                 "status": "대기",
             },
             {
-                "id": "ingredient-lettuce-01",
-                "class_name": "lettuce",
-                "display_name": "상추",
+                "id": "ingredient-cheese-01",
+                "class_name": "cheese",
+                "display_name": "치즈",
                 "confidence": 0.89,
                 "pixel": [641, 395],
                 "angle_deg": 71.0,
@@ -213,9 +213,9 @@ class MockCore:
                 "status": "대기",
             },
             {
-                "id": "ingredient-carrot-01",
-                "class_name": "carrot",
-                "display_name": "당근",
+                "id": "ingredient-berry-01",
+                "class_name": "berry",
+                "display_name": "블루베리",
                 "confidence": 0.91,
                 "pixel": [879, 238],
                 "angle_deg": 132.0,
@@ -227,6 +227,9 @@ class MockCore:
                 "status": "대기",
             },
         ]
+        self.detections.append(dict(id='bowl',class_name='bowl',display_name='보울',confidence=.96,
+                                    pixel=[640,360],angle_deg=0,depth_m=None,base_mm=[500,0,288],
+                                    box=[520,240,240,240],valid=True,reason=None,status='보울'))
         self._publish({"type": "detections", "data": {"items": self.get_detections()}})
         self._set_state(SystemState.READY, step=None, progress=0)
         self._log("재료 3개 감지 완료")
@@ -246,9 +249,9 @@ class MockCore:
 
     async def _run_salad_operation(self, recipe: dict[str, int]) -> None:
         requested = {name for name, count in recipe.items() if count > 0}
-        targets = [item for item in self.detections if item["class_name"] in requested]
+        targets = [item for item in self.detections if item["class_name"] in requested and item['class_name'] != 'bowl']
         if not targets:
-            targets = list(self.detections)
+            raise InvalidStateError('선택한 재료가 없습니다.')
 
         phases = [
             (SystemState.TARGET_SELECTED, "대상 선택"),
@@ -274,8 +277,8 @@ class MockCore:
             target["status"] = "완료"
             self._publish({"type": "detections", "data": {"items": self.get_detections()}})
 
-        self._set_state(SystemState.POURING, step="소스병 기울이기", progress=94)
-        self._log("빈 소스병 기울이기 시뮬레이션")
+        self._set_state(SystemState.HOMING, step="HOME 복귀", progress=94)
+        self._log("HOME 복귀 시뮬레이션 — 소스병 동작 제외")
         await self._pause(1.4)
 
         self._set_state(SystemState.FINISHED, step="작업 완료", progress=100)
