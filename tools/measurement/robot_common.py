@@ -73,11 +73,15 @@ class Robot:
         import DR_init
 
         self.rclpy = rclpy
-        DR_init.__dsr__id, DR_init.__dsr__model = ROBOT_ID, ROBOT_MODEL
+        # DR_init uses double-underscore module attributes.  Direct access from
+        # this class body would be name-mangled to _Robot__dsr__*, so assign
+        # the exact attribute names explicitly.
+        setattr(DR_init, "__dsr__id", ROBOT_ID)
+        setattr(DR_init, "__dsr__model", ROBOT_MODEL)
         if not rclpy.ok():
             rclpy.init()
         self.node = rclpy.create_node("salad_workflow", namespace=ROBOT_ID)
-        DR_init.__dsr__node = self.node
+        setattr(DR_init, "__dsr__node", self.node)
         import DSR_ROBOT2 as dsr
         from DSR_ROBOT2 import (
             DR_BASE, DR_MV_MOD_ABS, ROBOT_MODE_AUTONOMOUS,

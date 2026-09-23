@@ -60,14 +60,14 @@ def main() -> int:
             robot.autonomous()
             move_safe(robot, poses, args.vel, args.acc)
             robot.grip(OPEN_POSITION, GRIPPER_CURRENT, "열기")
-            robot.wait(0.5)
+            robot.wait(2)
             safe_pose, hover_pose, pick_pose = approach_target(
                 robot, x, y, reference, safe_z, args.hover_height_mm,
                 args.vel, args.acc, args.class_name,
             )
             robot.movel(pick_pose, 5.0, 5.0, "집기 Z 하강")
             robot.grip(args.close_position, args.current, "닫기")
-            robot.wait(1.0)
+            robot.wait(2.0)
             robot.movel(hover_pose, 5.0, 5.0, "집은 후 상승")
             robot.movel(safe_pose, args.vel, args.acc, "집은 후 안전 높이")
             print("집기 완료. 박스의 미끄러짐과 찌그러짐을 확인하세요.")
@@ -77,7 +77,7 @@ def main() -> int:
             robot.movel(hover_pose, args.vel, args.acc, "반환 Hover")
             robot.movel(pick_pose, 5.0, 5.0, "반환 Z 하강")
             robot.grip(OPEN_POSITION, GRIPPER_CURRENT, "반환 열기")
-            robot.wait(0.5)
+            robot.wait(2)
             robot.movel(hover_pose, 5.0, 5.0, "반환 후 상승")
             robot.movel(safe_pose, args.vel, args.acc, "반환 후 안전 높이")
             move_safe(robot, poses, args.vel, args.acc)
