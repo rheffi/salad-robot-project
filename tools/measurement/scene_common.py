@@ -119,7 +119,8 @@ def capture_scene(
     if not model_file.is_file():
         raise FileNotFoundError(f"YOLO 모델이 없습니다: {model_file}")
     model = YOLO(str(model_file))
-    names = set(str(name) for name in model.names.values())
+    raw_names = model.names.values() if isinstance(model.names, dict) else model.names
+    names = set(str(name) for name in raw_names)
     missing = sorted(set(SCENE_CLASSES) - names)
     if missing:
         raise ValueError(f"YOLO 모델 누락 클래스: {missing}")
@@ -223,6 +224,8 @@ def load_snapshot(path: Path, correction: dict[str, Any]) -> dict[str, Any]:
     expected_offset = dict(zip(("x", "y"), manual_offset(correction)))
     if snapshot.get("manual_offset_mm") != expected_offset:
         raise ValueError("장면 저장 후 수동 XY 오프셋이 바뀌었습니다. 장면을 다시 촬영하세요.")
+    if snapshot.get("camera") != correction.get("camera"):
+        raise ValueError("장면과 XY 보정의 카메라 해상도가 다릅니다.")
     detections = snapshot.get("detections")
     if not isinstance(detections, dict):
         raise ValueError("장면 detections 형식이 잘못됐습니다.")
